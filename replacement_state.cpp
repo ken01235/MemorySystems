@@ -1,6 +1,7 @@
 #include "replacement_state.h"
 #include <stdio.h> 
 #include <stdlib.h> 
+using namespace std;
 
 SCHEDULER_STATE::SCHEDULER_STATE( int _processes, int _banks, int _policy, int _queue_size, int _hit_latency, int _miss_latency, int _marking_cap )
 {

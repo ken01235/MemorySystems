@@ -1,6 +1,7 @@
 #include <iostream>
 #include <functional>
 #include "replacement_state.h"
+#include "replacement_state.cpp"
 using namespace std;
 
 int main()
