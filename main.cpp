@@ -8,6 +8,7 @@ int main()
 {
     int timer = 0;
     bool finish = 0;
+    char s[20];
 
     int processes, banks, queue_size, policy, hit_latency, miss_latency, marking_cap, T;
     cin >> processes >> banks >> queue_size >> policy >> hit_latency >> miss_latency >> marking_cap >> T;
@@ -25,9 +26,12 @@ int main()
     while (!finish) {
         int serial, process, bank, row;
 
+        // remove reqs that 'del'=1 from queue (batch--)
+        // if the current batch is cleaned: generate new batch, update loads and rank
+        // DRAM take reqs from queue and set 'del'=1
+        // check it's finished or not. if not, read in and print out the input
         cout.width(4);
         cout << left << timer++;
-        scheduler->UpdateMarksAndLoads();
         scheduler->Update();
         if ( scheduler->is_full() ) {
             cout << "                   ";
@@ -35,7 +39,7 @@ int main()
             cout << "\r\n";
         } else {
             cin >> serial >> process >> bank >> row;
-            cout << scheduler->RequestString( serial, process, bank, row );
+            cout << scheduler->RequestString( s, serial, process, bank, row );
             scheduler->AddRequest( serial, process, bank, row );
             scheduler->PrintStats( cout );
             cout << "\r\n";

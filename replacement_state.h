@@ -16,9 +16,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-// #include <cassert>
+#include <cstdlib>
+#include <cassert>
 #include <iostream>
-#include <ostream>
 
 // Replacement Policies Supported
 typedef enum  {
@@ -35,6 +35,7 @@ typedef struct {
     int process;
     int bank;
     int row;
+    bool del;
 
     // Only for PARBS
     bool mark;
@@ -50,6 +51,7 @@ typedef struct {
     int process;
     int bank;
     int row;
+    int mark;
 
     // Only for PARBS
     int * Marks; // recording the left mark 
@@ -88,7 +90,7 @@ class SCHEDULER_STATE {
 
     bool is_full();
     void AddRequest( int serial, int process, int bank, int row );
-    char* RequestString( int serial, int process, int bank, int row );
+    char* RequestString( char* s, int serial, int process, int bank, int row );
     bool Update();
     bool UpdateFCFS();
     bool UpdateFRFCFS();

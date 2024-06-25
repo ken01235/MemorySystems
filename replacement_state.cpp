@@ -29,6 +29,8 @@ void SCHEDULER_STATE::Init()
 {
     for ( int i = 0; i < banks; i++ ) {
         Banks[ i ].timer = -1;
+        Banks[ i ].mark = 1;
+        Banks[ i ].start = 0;
         Banks[ i ].Marks = new int[ processes ];
         Banks[ i ].ProcessLoad = new int[ processes ];
         for ( int j = 0; j < processes; j++ ) {
@@ -40,9 +42,6 @@ void SCHEDULER_STATE::Init()
     for ( int i = 0; i < processes; i++ ) {
         MaxBankLoad[ i ] = 0;
         TotalLoad[ i ] = 0;
-    }
-
-    for ( int i = 0; i < processes; i++ ) {
         sorted_processes[ i ] = processes - i - 1;
     }
 
@@ -57,9 +56,10 @@ bool SCHEDULER_STATE::is_full()
 ostream & SCHEDULER_STATE::PrintStats( ostream &out )
 {
 
+    char s[20];
     for ( int i = 0; i < banks; i++ ) {
         if ( Banks[ i ].start ) {
-            out << RequestString( Banks[ i ].serial, Banks[ i ].process, Banks[ i ].bank, Banks[ i ].row );
+            out << RequestString( s, Banks[ i ].serial, Banks[ i ].process, Banks[ i ].bank, Banks[ i ].row );
         } else if ( Banks[ i ].timer > 0 ) {
             out << "   |              |";
         } else if ( Banks[ i ].timer == 0 ) {
@@ -69,8 +69,8 @@ ostream & SCHEDULER_STATE::PrintStats( ostream &out )
         }
     }
 
-    for ( int i = 0; i < queue_len; i++ )
-        out << " No." << i + 1 << ": " << RequestString( Queue[ i ].serial, Queue[ i ].process, Queue[ i ].bank, Queue[ i ].row );
+    // for ( int i = 0; i < queue_len; i++ )
+    //     out << " No." << i + 1 << ": " << RequestString( s, Queue[ i ].serial, Queue[ i ].process, Queue[ i ].bank, Queue[ i ].row );
 
     return out;
 }
@@ -83,18 +83,19 @@ void SCHEDULER_STATE::AddRequest( int serial, int process, int bank, int row )
         Queue[ i ].process = Queue[ i - 1 ].process;
         Queue[ i ].bank    = Queue[ i - 1 ].bank;
         Queue[ i ].row     = Queue[ i - 1 ].row;
-        Queue[ i ].hit     = Queue[ i - 1 ].hit;
+        Queue[ i ].del     = Queue[ i - 1 ].del;
         Queue[ i ].mark    = Queue[ i - 1 ].mark;
+        Queue[ i ].hit     = Queue[ i - 1 ].hit;
     }
     Queue[ 0 ].serial  = serial;
     Queue[ 0 ].process = process;
     Queue[ 0 ].bank    = bank;
     Queue[ 0 ].row     = row;
-    Queue[ 0 ].hit     = 0;
+    Queue[ 0 ].del     = 0;
     Queue[ 0 ].mark    = 0;
+    Queue[ 0 ].hit     = 0;
     queue_len++;
 
-    // cout << "AddRequest finished\n";
     return;
 }
 
@@ -120,14 +121,11 @@ void SCHEDULER_STATE::to_string ( char *s, int i, int len )
     }
 }
 
-char* SCHEDULER_STATE::RequestString( int serial, int process, int bank, int row )
+char* SCHEDULER_STATE::RequestString( char* s, int serial, int process, int bank, int row )
 {
-    char* s = new char[19];
-
     // cout << "RequestString start\n";
     for ( int i = 0; i < 19; i++ )
         s[i] = ' ';
-
 
     s[3] = 't';
     to_string(s + 4, serial, 5);
@@ -138,8 +136,7 @@ char* SCHEDULER_STATE::RequestString( int serial, int process, int bank, int row
     s[15] = '(';
     to_string(s + 16, row, 2);
     s[18] = ')';
-    // cout << "RequestString finish\n";
-    // cout << s << "\n";
+    s[19] = '\0';
     return s;
 }
 
@@ -253,15 +250,31 @@ bool SCHEDULER_STATE::UpdateFRFCFS()
 bool SCHEDULER_STATE::UpdatePARBS()
 {
     // cout << "In UpdatePARBS\n";
-
     bool finish = 1;
+    for ( int i = 0; i < queue_len; i++ ) {
+        if ( Queue[ i ].del ) {
+            for ( int j = i--; j <= queue_len - 1; j++ ) {
+                Queue[ j ].serial  = Queue[ j + 1 ].serial;
+                Queue[ j ].process = Queue[ j + 1 ].process;
+                Queue[ j ].bank    = Queue[ j + 1 ].bank;
+                Queue[ j ].row     = Queue[ j + 1 ].row;
+                Queue[ j ].del     = Queue[ j + 1 ].del;
+                Queue[ j ].hit     = Queue[ j + 1 ].hit;
+                Queue[ j ].mark    = Queue[ j + 1 ].mark;
+            }
+            queue_len--;
+            finish = 0;
+        }
+    }
+    UpdateMarksAndLoads();
+
     for ( int i = 0; i < banks; i++ ) {
 
         if ( Banks[ i ].timer > 0 ) {
             Banks[ i ].start = 0;
             finish = 0;
         }
-        Banks[ i ].timer--;
+        Banks[ i ].timer = Banks[ i ].timer >= -1? Banks[ i ].timer - 1: -2;
 
         for ( int j = 0; j < queue_size; j++ ) {
             Queue[ j ].hit = ( Queue[ j ].bank == i ) && ( Banks[ i ].row == Queue[ j ].row );
@@ -272,29 +285,18 @@ bool SCHEDULER_STATE::UpdatePARBS()
             // find the best request in queue
             int best_request = FindBest( i );
             if ( best_request >= 0 ) {
-                Banks[ i ].timer = ( Banks[ i ].timer == -1 && Banks[ i ].row == Queue[ best_request ].row )? hit_latency - 1: miss_latency - 1;
+                Banks[ i ].timer = ( /*Banks[ i ].timer == -1 &&*/ Banks[ i ].row == Queue[ best_request ].row )? hit_latency - 1: miss_latency - 1;
                 Banks[ i ].start = 1;
                 Banks[ i ].serial  = Queue[ best_request ].serial;
                 Banks[ i ].process = Queue[ best_request ].process;
                 Banks[ i ].bank    = Queue[ best_request ].bank;
                 Banks[ i ].row     = Queue[ best_request ].row;
+                Banks[ i ].mark    = Queue[ best_request ].mark;
 
-                int j = best_request;
-                while ( j <= queue_len - 1 ) {
-                    Queue[ j ].serial  = Queue[ j + 1 ].serial;
-                    Queue[ j ].process = Queue[ j + 1 ].process;
-                    Queue[ j ].bank    = Queue[ j + 1 ].bank;
-                    Queue[ j ].row     = Queue[ j + 1 ].row;
-                    Queue[ j ].hit     = Queue[ j + 1 ].hit;
-                    Queue[ j ].mark    = Queue[ j + 1 ].mark;
-                    j++;
-                }
-                queue_len--;
-                finish = 0;
+                Queue[ best_request ].del = 1;
             }
         }
     }
-    // cout << "UpdatePARBS finished " << '\n';
     return !finish;
 }
 
@@ -374,18 +376,17 @@ void SCHEDULER_STATE::UpdateMarksAndLoads()
 
     if ( !rst ) return;
 
-    // cout << "rst";
-    for ( int j = 0; j < processes; j++ ) {
-        MaxBankLoad[ j ] = 0;
-        TotalLoad[ j ] = 0;
-        for ( int i = 0; i < banks; i++ ) {
-            Banks[ i ].Marks[ j ] = marking_cap;
+    for ( int i = 0; i < processes; i++ ) {
+        MaxBankLoad[ i ] = 0;
+        TotalLoad[ i ] = 0;
+        for ( int j = 0; j < banks; j++ ) {
+            Banks[ j ].Marks[ i ] = marking_cap;
         }
     }
     for ( int i = queue_len - 1; i >= 0; i-- ) {
         bank = Queue[ i ].bank;
         process = Queue[ i ].process;
-        if ( Banks[ bank ].Marks[ process ] > 0 ) {
+        if ( !Queue[ i ].mark && Banks[ bank ].Marks[ process ] ) {
             Banks[ bank ].Marks[ process ]--;
             TotalLoad[ process ]++;
             Queue[ i ].mark = 1;
@@ -439,15 +440,14 @@ void SCHEDULER_STATE::UpdateMarksAndLoads()
         min_max_bank_load = marking_cap * banks + 1;
         min_process_cnt = 0;
     }
-    cout << " sorted_processes: ";
-    for ( int i = 0; i < processes; i++ )
-        cout << sorted_processes[ i ];
-    cout << " MaxBankLoad: ";
-    for ( int i = 0; i < processes; i++ )
-        cout << MaxBankLoad[ i ];
-    cout << " TotalLoad: ";
-    for ( int i = 0; i < processes; i++ )
-        cout << TotalLoad[ i ];
-    // cout << "UpdateMarksAndLoads finished\n";
+    // cout << " sorted_processes: ";
+    // for ( int i = 0; i < processes; i++ )
+    //     cout << sorted_processes[ i ];
+    // cout << " MaxBankLoad: ";
+    // for ( int i = 0; i < processes; i++ )
+    //     cout << MaxBankLoad[ i ];
+    // cout << " TotalLoad: ";
+    // for ( int i = 0; i < processes; i++ )
+    //     cout << TotalLoad[ i ];
 }
 
