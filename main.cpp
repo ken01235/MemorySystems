@@ -1,7 +1,6 @@
 #include <iostream>
 #include <functional>
 #include "replacement_state.h"
-#include "replacement_state.cpp"
 using namespace std;
 
 int main()
@@ -12,14 +11,14 @@ int main()
 
     int processes, banks, queue_size, policy, hit_latency, miss_latency, marking_cap, T;
     cin >> processes >> banks >> queue_size >> policy >> hit_latency >> miss_latency >> marking_cap >> T;
-    cout << processes << "\r\n";
-    cout << banks << "\r\n";
-    cout << queue_size << "\r\n";
-    cout << policy << "\r\n";
-    cout << hit_latency << "\r\n";
-    cout << miss_latency << "\r\n";
-    cout << marking_cap << "\r\n";
-    cout << T << "\r\n";
+    cout << processes << "\n";
+    cout << banks << "\n";
+    cout << queue_size << "\n";
+    cout << policy << "\n";
+    cout << hit_latency << "\n";
+    cout << miss_latency << "\n";
+    cout << marking_cap << "\n";
+    cout << T << "\n";
 
     SCHEDULER_STATE * scheduler = new SCHEDULER_STATE( processes, banks, policy, queue_size, hit_latency, miss_latency, marking_cap );
 
@@ -36,13 +35,13 @@ int main()
         if ( scheduler->is_full() ) {
             cout << "                   ";
             scheduler->PrintStats( cout );
-            cout << "\r\n";
+            cout << "\n";
         } else {
             cin >> serial >> process >> bank >> row;
             cout << scheduler->RequestString( s, serial, process, bank, row );
             scheduler->AddRequest( serial, process, bank, row );
             scheduler->PrintStats( cout );
-            cout << "\r\n";
+            cout << "\n";
         }
 
         finish = serial == T - 1;
@@ -53,7 +52,7 @@ int main()
         cout << left << timer++;
         cout << "                   ";
         scheduler->PrintStats( cout );
-        cout << "\r\n";
+        cout << "\n";
     }
 
     delete scheduler;

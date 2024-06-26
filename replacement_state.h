@@ -18,7 +18,7 @@
 
 #include <cstdlib>
 #include <cassert>
-#include <iostream>
+#include "utils.h"
 
 // Replacement Policies Supported
 typedef enum  {
@@ -96,7 +96,7 @@ class SCHEDULER_STATE {
     bool UpdateFRFCFS();
     bool UpdatePARBS();
     void UpdateMarksAndLoads();
-    std::ostream& PrintStats( std::ostream &out );
+    ostream& PrintStats( ostream &out );
 
   private:
     
